@@ -14,7 +14,7 @@ import (
 	"runtime/pprof"
 )
 
-var inputFile = flag.String("infile", "1.txt", "Input file path")
+var inputFile = flag.String("infile", "1~.txt", "Input file path")
 
 func dump_httpresp(resp *http.Response) {
 	fmt.Println("resp: ", resp)
@@ -136,15 +136,10 @@ func file_cached(fname *string) bool {
 
 	fi, err := os.Stat(*fname)
 
-	if err != nil {
-		fmt.Println("ERROR: %v", err)
+	if err != nil || fi == nil {
 		return false
 	}
 
-	if fi == nil {
-		return false
-	}
-	
 	if fi.ModTime().Unix() - time.Now().UTC().Unix() < 60*72 {
 		return true
 	}
@@ -183,7 +178,7 @@ func main() {
 		body, err := ioutil.ReadAll(resp.Body)
 		//fmt.Println(body)
 		
-		err = ioutil.WriteFile("1.txt", body, 0666)
+		err = ioutil.WriteFile(*inputFile, body, 0666)
 		fmt.Println("write: ", err)
 	}
 	
@@ -196,7 +191,7 @@ func main() {
 
 	defer xmlFile.Close()
 	
-	f, err := os.Create("1.prof")
+	f, err := os.Create("1~.prof")
 	if err != nil {
 		fmt.Println(err)
 	}
