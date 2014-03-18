@@ -1,18 +1,17 @@
 GO=/usr/local/go/bin/go
 
-all: parse-dwml http-server
+TARGETS=parse-dwml http-server http-client
 
-http-server: http-server.go
-	$(GO) build $<
+all: $(TARGETS)
 
-parse-dwml: parse-dwml.go
+%: %.go
 	$(GO) build $<
 
 %.run: %.go
 	$(GO) run $<
 
 clean:
-	rm http-server parse-dwml
+	rm $(TARGETS)
 
 help:
 	$(GO) help
