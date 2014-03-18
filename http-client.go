@@ -18,10 +18,10 @@ func dump_httpresp(resp *http.Response) {
 		valueField := val.Field(i)
 		typeField := val.Type().Field(i)
 		typeName := valueField.Type().Name()
- 
+
 		fmt.Printf("%s(%s),\t\t\t Field Value: %v\n", typeField.Name, typeName, valueField.Interface())
 	}
-	
+
 	fmt.Println("=== headers ===")
 	for k, v := range resp.Header {
 		fmt.Printf("%20s = %20s\n", k, v)
