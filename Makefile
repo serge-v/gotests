@@ -1,7 +1,7 @@
 GOPATH=$(HOME)/src/gocode
 GO=/usr/local/go/bin/go
 
-TARGETS=parse-dwml http-server http-client ftp-client
+TARGETS=parse-dwml http-server http-client ftp-client mysql-client
 
 all: $(TARGETS)
 
@@ -10,9 +10,10 @@ all: $(TARGETS)
 
 getdeps:
 	GOPATH=$(GOPATH) $(GO) get github.com/jlaffaye/ftp
+	GOPATH=$(GOPATH) $(GO) get github.com/go-sql-driver/mysql
 	
 %.run: %.go
-	$(GO) run $<
+	GOPATH=$(GOPATH) $(GO) run $<
 
 clean:
 	rm $(TARGETS)
