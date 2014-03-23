@@ -1,5 +1,6 @@
 *~.*
 *.elf
+*.log
 
 /pkg/
 
@@ -8,3 +9,4 @@ http-server
 http-client
 ftp-client
 mysql-client
+cache-test
