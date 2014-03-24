@@ -3,6 +3,7 @@
 *.log
 
 /pkg/
+/version/
 
 parse-dwml
 http-server

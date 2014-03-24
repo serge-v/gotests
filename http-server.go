@@ -11,7 +11,12 @@ import (
 	"reflect"
 	"time"
 	"runtime"
+	"sync"
+	"./version"
 )
+
+const N = 10000
+const SENDERS = 10
 
 type RootHandler struct {
 }
@@ -19,13 +24,30 @@ type RootHandler struct {
 var userrec = make(chan string)
 var done = make(chan int)
 
+var appLocker sync.RWMutex
+
+type App struct {
+	Codes map[string]string
+}
+
+var app = &App{
+	Codes: make(map [string]string, 1000),
+}
+
+func getApp() *App {
+	appLocker.RLock()
+	defer appLocker.RUnlock()
+	return app
+}
 
 func (h *RootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 //	log.Println("req")
-	userrec <- "some useful info"
 /*	if h.count%1000 == 0 {
 		log.Println("requests: ", h.count)
 	}*/
+	
+	a := getApp()
+	userrec <- fmt.Sprintf("%s, %s", a.Codes["test"], r.URL)
 }
 
 type HelpHandler struct {
@@ -56,14 +78,13 @@ func dump_httpreq(req *http.Request) {
 }
 
 func singleSender(num int) {
-	const N = 10000
 	
 	tr := &http.Transport{
 		DisableKeepAlives: false,
 	}
 	
 	client := &http.Client{Transport: tr}
-	req, _ := http.NewRequest("GET", "http://localhost:4001/sadasdasd/", nil)
+	req, _ := http.NewRequest("GET", "http://localhost:4001/sadasdasd/dfgdfgdfgdfsg/dfgdfgdsfg/dfgsdfgdfsg/dfgdfsgdsfgdsfg/dfgdfgdfg", nil)
 	
 	for i := 0; i < N; i++ {
 		
@@ -85,7 +106,7 @@ func singleSender(num int) {
 
 func sender() {
 	
-	for i := 0; i < 10; i++ {
+	for i := 0; i < SENDERS; i++ {
 		go singleSender(i+1)
 	}
 }
@@ -134,13 +155,14 @@ func server2(conf Config) {
 				
 		}
 		
-		if donecount == 10 {
+		if donecount == SENDERS {
 			break
 		}
 	}
 
 	elapsed := time.Since(start)
-	fmt.Println("sender: elapsed:", elapsed)
+	fmt.Printf("sender: elapsed: %v, speed: %.1f kps\n", elapsed, N*SENDERS/elapsed.Seconds()/1000)
+	fmt.Printf("app: %+v\n", app)
 /*	
 	fmt.Println("Press ENTER to stop")
 	reader := bufio.NewReader(os.Stdin)
@@ -152,19 +174,44 @@ type Config struct {
 	Port int
 }
 
+func updateCache() {
+	ticker := time.NewTicker(time.Second)
+
+	for t := range ticker.C {
+		m1 := make(map[string]string)
+		m1["test"] = fmt.Sprintf("test %v", time.Now())
+		if false {
+			fmt.Println(t)
+		}
+
+		a := App{
+			Codes: m1,
+		}
+		
+	
+		appLocker.Lock()
+		app = &a
+		appLocker.Unlock()
+	}
+
+}
+
 func main() {
+	fmt.Println("version:", version.HEAD)
+
 	file, err := os.OpenFile("1.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Panicf(err.Error())
 	}
 	log.SetOutput(file)
 	log.Println("started")
-
+	
 	runtime.GOMAXPROCS(4)
 
 	conf := Config{
 		Port: 4000,
 	}
 
+	go updateCache()
 	server2(conf)
 }

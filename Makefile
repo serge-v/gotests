@@ -5,7 +5,10 @@ TARGETS=parse-dwml http-server http-client ftp-client mysql-client cache-test
 
 all: $(TARGETS)
 
-%: %.go
+version/version.go:
+	./gen-version.sh
+
+%: %.go version/version.go
 	GOPATH=$(GOPATH) $(GO) build $<
 
 getdeps:
