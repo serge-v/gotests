@@ -5,12 +5,14 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"reflect"
+//	"reflect"
+	"time"
+	"runtime"
 )
 
 func dump_httpresp(resp *http.Response) {
-	fmt.Println("resp: ", resp)
-
+	fmt.Println("status: ", resp.Status)
+/*
 	st := reflect.TypeOf(resp)
 	fmt.Println(st)
 
@@ -27,23 +29,53 @@ func dump_httpresp(resp *http.Response) {
 	fmt.Println("=== headers ===")
 	for k, v := range resp.Header {
 		fmt.Printf("%20s = %20s\n", k, v)
-	}
+	}*/
 }
 
-func main() {
-
-	for i := 0; i < 1000; i++ {
-		resp, err := http.Get("http://localhost:4001/sadasdasd/")
+func send(num int) {
+	const N = 10000
+	
+	tr := &http.Transport{
+		DisableKeepAlives: false,
+	}
+	
+	client := &http.Client{Transport: tr}
+	req, err := http.NewRequest("GET", "http://localhost:4001/sadasdasd/", nil)
+	fmt.Println("newreq", err)
+	
+	for i := 0; i < N; i++ {
+		
+		resp, err := client.Do(req)
+		
 		if err != nil {
 			fmt.Println(err)
 			break
 		}
 
-		if i == 999 {
+		if i%1000 == 0 {
+			fmt.Println(i)
+		}
+		
+		if i == N-1 {
 			dump_httpresp(resp)
 		}
+		defer resp.Body.Close()
 	}
+	fmt.Println("sent", num)
+}
 
-	fmt.Println("1000 reqs done")
+func main() {
+	runtime.GOMAXPROCS(4)
 
+	start := time.Now()
+	
+	for i := 0; i < 20; i++ {
+		go send(i+1)
+	}
+	
+	send(0)
+
+
+	elapsed := time.Since(start)
+	fmt.Println("elapsed:", elapsed)
 }

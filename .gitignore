@@ -1,7 +1,9 @@
 *~.*
 *.elf
+*.log
 
 /pkg/
+/version/
 
 parse-dwml
 http-server
@@ -9,3 +11,4 @@ http-client
 ftp-client
 mysql-client
 parse-json
+cache-test

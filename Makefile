@@ -1,11 +1,14 @@
 GOPATH=$(HOME)/src/gocode
 GO=/usr/local/go/bin/go
 
-TARGETS=parse-dwml http-server http-client ftp-client mysql-client parse-json
+TARGETS=parse-dwml http-server http-client ftp-client mysql-client parse-json cache-test
 
 all: $(TARGETS)
 
-%: %.go
+version/version.go:
+	./gen-version.sh
+
+%: %.go version/version.go
 	GOPATH=$(GOPATH) $(GO) build $<
 
 getdeps:
