@@ -1,7 +1,7 @@
 GOPATH=$(HOME)/src/gocode
 GO=/usr/local/go/bin/go
 
-TARGETS=parse-dwml http-server http-client ftp-client mysql-client
+TARGETS=parse-dwml http-server http-client ftp-client mysql-client parse-json
 
 all: $(TARGETS)
 

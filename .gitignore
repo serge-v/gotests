@@ -8,3 +8,4 @@ http-server
 http-client
 ftp-client
 mysql-client
+parse-json
