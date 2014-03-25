@@ -6,5 +6,6 @@ echo "const HEAD = \""${ver}"\"" >> version/version~.txt
 diff version/version~.txt version/version.go 2> /dev/null
 if [ $? -ne 0 ] ; then
 	cp version/version~.txt version/version.go
-	echo "changed"
+	rm version/version~.txt
+	echo "version.go generated. New version:" ${ver}
 fi

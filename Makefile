@@ -18,8 +18,12 @@ getdeps:
 %.run: %.go
 	GOPATH=$(GOPATH) $(GO) run $<
 
+deploy:
+	rsync http-server http-client server1:
+	rsync http-server http-client server2:
+
 clean:
-	rm $(TARGETS)
+	rm $(TARGETS) version/version.go
 
 help:
 	$(GO) help

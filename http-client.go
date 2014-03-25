@@ -10,6 +10,9 @@ import (
 	"runtime"
 )
 
+const N = 10000
+const SENDERS = 10
+
 func dump_httpresp(resp *http.Response) {
 	fmt.Println("status: ", resp.Status)
 /*
@@ -32,16 +35,16 @@ func dump_httpresp(resp *http.Response) {
 	}*/
 }
 
-func send(num int) {
-	const N = 10000
-	
+func sender(num int, done chan int) {
+
 	tr := &http.Transport{
 		DisableKeepAlives: false,
 	}
 	
 	client := &http.Client{Transport: tr}
-	req, err := http.NewRequest("GET", "http://localhost:4001/sadasdasd/", nil)
-	fmt.Println("newreq", err)
+	
+	url := "http://10.68.20.200:8080/data_provider/appnexus?uid=12000000000&aid=11000000000&country=US&seller=15000&url=http%3A%2F%2Fwww.test.com%2F"
+	req, _ := http.NewRequest("GET", url, nil)
 	
 	for i := 0; i < N; i++ {
 		
@@ -52,30 +55,32 @@ func send(num int) {
 			break
 		}
 
-		if i%1000 == 0 {
-			fmt.Println(i)
-		}
-		
-		if i == N-1 {
-			dump_httpresp(resp)
-		}
 		defer resp.Body.Close()
 	}
-	fmt.Println("sent", num)
+	done <- num
 }
 
 func main() {
 	runtime.GOMAXPROCS(4)
 
 	start := time.Now()
+
+	var done = make(chan int)
 	
-	for i := 0; i < 20; i++ {
-		go send(i+1)
+	for i := 0; i < SENDERS; i++ {
+		go sender(i+1, done)
 	}
 	
-	send(0)
+	cnt := 0
 
+	for num := range (done) {
+		cnt++
+		fmt.Println(num, "done")
+		if cnt == SENDERS {
+			break
+		}
+	}
 
 	elapsed := time.Since(start)
-	fmt.Println("elapsed:", elapsed)
+	fmt.Printf("sender: elapsed: %v, speed: %.1f kps\n", elapsed, N*SENDERS/elapsed.Seconds()/1000)
 }

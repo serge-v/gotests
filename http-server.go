@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"sync"
 	"./version"
+	"bufio"
 )
 
 const N = 10000
@@ -121,20 +122,19 @@ func server2(conf Config) {
 	log.Println("starting on :", conf.Port)
 
 	s := &http.Server{
-		Addr:           ":4001",
+		Addr:           ":8080",
 		Handler:        nil,
 		ReadTimeout:    time.Second,
 		WriteTimeout:   time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	l, e := net.Listen("tcp", ":4001")
+	l, e := net.Listen("tcp", ":8080")
 	if e != nil {
 		log.Panicf(e.Error())
 	}
 
 	go s.Serve(l)
-	go sender()
 
 	start := time.Now()
 
@@ -143,31 +143,22 @@ func server2(conf Config) {
 		log.Panicf(err.Error())
 	}
 
-	donecount := 0
-
 	for {
 		select {
 			case msg := <-userrec:
 				fmt.Fprintln(file, msg)
-			case num := <-done:
-				donecount++
-				fmt.Println("done:", num)
 				
-		}
-		
-		if donecount == SENDERS {
-			break
 		}
 	}
 
 	elapsed := time.Since(start)
 	fmt.Printf("sender: elapsed: %v, speed: %.1f kps\n", elapsed, N*SENDERS/elapsed.Seconds()/1000)
 	fmt.Printf("app: %+v\n", app)
-/*	
+	
 	fmt.Println("Press ENTER to stop")
 	reader := bufio.NewReader(os.Stdin)
 	reader.ReadString('\n')
-*/
+
 }
 
 type Config struct {
