@@ -8,8 +8,8 @@ all: $(TARGETS)
 version/version.go: *.go
 	./gen-version.sh
 
-#%: %.go
-#	GOPATH=$(GOPATH) $(GO) build $<
+%: %.go
+	GOPATH=$(GOPATH) $(GO) build $<
 
 http-server: version/version.go http-server.go http-server-config.go
 	GOPATH=$(GOPATH) $(GO) build http-server.go http-server-config.go
