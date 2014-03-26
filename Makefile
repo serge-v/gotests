@@ -5,8 +5,8 @@ TARGETS=parse-dwml http-server http-client ftp-client mysql-client parse-json ca
 
 all: $(TARGETS)
 
-version/version.go: *.go
-	./gen-version.sh
+version/version.go: *.go Makefile
+	@./gen-version.sh
 
 %: %.go
 	GOPATH=$(GOPATH) $(GO) build $<

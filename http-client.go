@@ -22,7 +22,7 @@ func sender(num int, done chan int) {
 	
 	client := &http.Client{Transport: tr}
 	
-	url := "http://localhost:8080/data_provider/appnexus?uid=1"
+	url := "http://localhost:8080/data_provider/appnexus?uid=12000000000&aid=11000000000&country=US&seller=15000&url=http%3A%2F%2Fwww.test.com%2F"
 	req, _ := http.NewRequest("GET", url, nil)
 	
 	for i := 0; i < N; i++ {
@@ -41,7 +41,7 @@ func sender(num int, done chan int) {
 }
 
 func main() {
-	runtime.GOMAXPROCS(8)
+	runtime.GOMAXPROCS(4)
 
 	start := time.Now()
 

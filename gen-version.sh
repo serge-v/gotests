@@ -9,7 +9,7 @@ echo "const DIFF = \`" >> version/version~.txt
 git diff | sed "s/\`/ __BK__ /g" >> version/version~.txt
 echo "\`" >> version/version~.txt
 
-diff version/version~.txt version/version.go 2> /dev/null
+diff -u version/version~.txt version/version.go 2> /dev/null
 if [ $? -ne 0 ] ; then
 	cp version/version~.txt version/version.go
 	rm version/version~.txt
