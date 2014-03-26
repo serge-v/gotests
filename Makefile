@@ -5,11 +5,14 @@ TARGETS=parse-dwml http-server http-client ftp-client mysql-client parse-json ca
 
 all: $(TARGETS)
 
-version/version.go:
+version/version.go: *.go
 	./gen-version.sh
 
-%: %.go version/version.go
-	GOPATH=$(GOPATH) $(GO) build $<
+#%: %.go
+#	GOPATH=$(GOPATH) $(GO) build $<
+
+http-server: version/version.go http-server.go http-server-config.go
+	GOPATH=$(GOPATH) $(GO) build http-server.go http-server-config.go
 
 getdeps:
 	GOPATH=$(GOPATH) $(GO) get github.com/jlaffaye/ftp
