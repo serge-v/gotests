@@ -2,33 +2,29 @@ package main
 
 import (
 	"flag"
-	"fmt"
 )
 
 type Config struct {
+	Host string
 	Port int
-	ShowUsage bool
 	ShowVersion bool
 }
 
 var conf Config
 
 func parseConf() bool {
-	port := flag.Int("port", 8080, "Port to listen")
-	usage := flag.Bool("help", false, "Show this help")
+	host := flag.String("host", "localhost", "Remote host")
+	port := flag.Int("port", 8080, "Remote port")
 	version := flag.Bool("version", false, "Show version, head hash and local source changes")
 	flag.Parse()
 
-	if *usage || !flag.Parsed() {
-		flag.VisitAll(func(f *flag.Flag){
-			fmt.Println(f.Usage)
-		})
+	if !flag.Parsed() {
 		return false
 	}
 	
 	conf = Config{
+		Host: *host,
 		Port: *port,
-		ShowUsage: *usage,
 		ShowVersion: *version,
 	}
 

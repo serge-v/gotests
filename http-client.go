@@ -22,7 +22,9 @@ func sender(num int, done chan int) {
 	
 	client := &http.Client{Transport: tr}
 	
-	url := "http://localhost:8080/data_provider/appnexus?uid=12000000000&aid=11000000000&country=US&seller=15000&url=http%3A%2F%2Fwww.test.com%2F"
+	urlfmt := "http://%s:8080/data_provider/appnexus?uid=12000000000&aid=11000000000&country=US&seller=15000&url=http%%3A%%2F%%2Fwww.test.com%%2F"
+	url := fmt.Sprintf(urlfmt, conf.Host)
+
 	req, _ := http.NewRequest("GET", url, nil)
 	
 	for i := 0; i < N; i++ {
@@ -34,13 +36,18 @@ func sender(num int, done chan int) {
 			break
 		}
 
-		io.Copy(ioutil.Discard, resp.Body);
+		io.Copy(ioutil.Discard, resp.Body); // need to read body completely otherwize keep-alive doesn't work
 		resp.Body.Close()
 	}
 	done <- num
 }
 
 func main() {
+
+	if !parseConf() {
+		return
+	}
+
 	runtime.GOMAXPROCS(4)
 
 	start := time.Now()

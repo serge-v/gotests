@@ -14,6 +14,9 @@ version/version.go: *.go Makefile
 http-server: version/version.go http-server.go http-server-config.go
 	GOPATH=$(GOPATH) $(GO) build http-server.go http-server-config.go
 
+http-client: version/version.go http-client.go http-client-config.go
+	GOPATH=$(GOPATH) $(GO) build http-client.go http-client-config.go
+
 getdeps:
 	GOPATH=$(GOPATH) $(GO) get github.com/jlaffaye/ftp
 	GOPATH=$(GOPATH) $(GO) get github.com/go-sql-driver/mysql
@@ -22,8 +25,8 @@ getdeps:
 	GOPATH=$(GOPATH) $(GO) run $<
 
 deploy:
-	rsync http-server http-client server1:
-	rsync http-server http-client server2:
+	rsync -vz http-server http-client server1:
+	rsync -vz http-server http-client server2:
 
 clean:
 	rm $(TARGETS) version/version.go

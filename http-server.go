@@ -46,8 +46,8 @@ func server(conf Config) {
 	http.Handle("/", &h1)
 	http.Handle("/help/", &h2)
 
-	log.Println("starting on :", conf.Port)
 	endpoint := fmt.Sprintf(":%d", conf.Port)
+	log.Println("starting on:", endpoint)
 
 	s := &http.Server{
 		Addr:           endpoint,
@@ -92,7 +92,7 @@ func main() {
 		return
 	}
 	
-	if *conf.ShowVersion {
+	if conf.ShowVersion {
 		fmt.Println("=== diff ===")
 		fmt.Println(version.DIFF)
 		fmt.Println("=== status ===")
@@ -108,6 +108,7 @@ func main() {
 	if err != nil {
 		log.Panicf(err.Error())
 	}
+
 	log.SetOutput(file)
 	log.Println("started")
 	
