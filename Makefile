@@ -11,8 +11,8 @@ version/version.go: *.go Makefile
 %: %.go
 	GOPATH=$(GOPATH) $(GO) build $<
 
-http-server: version/version.go http-server.go http-server-config.go
-	GOPATH=$(GOPATH) $(GO) build http-server.go http-server-config.go
+http-server: version/version.go http-server.go http-server-config.go daemon.go
+	GOPATH=$(GOPATH) $(GO) build http-server.go http-server-config.go daemon.go
 
 http-client: version/version.go http-client.go http-client-config.go
 	GOPATH=$(GOPATH) $(GO) build http-client.go http-client-config.go

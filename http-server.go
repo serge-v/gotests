@@ -39,7 +39,7 @@ func (h *HelpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "help handler")
 }
 
-func server(conf Config) {
+func server(conf Config, daemon bool) {
 
 	var h1 RootHandler
 	var h2 HelpHandler
@@ -70,7 +70,11 @@ func server(conf Config) {
 	reader := bufio.NewReader(os.Stdin)
 
 	go func() {
-		reader.ReadString('\n')
+		if daemon {
+			time.Sleep(time.Second*1000)
+		} else {
+			reader.ReadString('\n')
+		}
 		quit <- true
 	}()
 
@@ -102,6 +106,8 @@ func main() {
 		return
 	}
 
+//	daemon(1, 1)
+
 	fmt.Println("version:", version.HEAD)
 
 	file, err := os.OpenFile("1.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
@@ -111,7 +117,8 @@ func main() {
 
 	log.SetOutput(file)
 	log.Println("started")
-	
+	fmt.Println("log started")
+
 	runtime.GOMAXPROCS(4)
-	server(conf)
+	server(conf, true)
 }
