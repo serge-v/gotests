@@ -25,8 +25,8 @@ getdeps:
 	GOPATH=$(GOPATH) $(GO) run $<
 
 deploy:
-	rsync -vz http-server http-client server1:
-	rsync -vz http-server http-client server2:
+	rsync -vz http-server http-server.conf server1:
+	rsync -vz http-client server2:
 
 clean:
 	rm $(TARGETS) version/version.go

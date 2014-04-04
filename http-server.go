@@ -12,48 +12,45 @@ import (
 	"runtime"
 	"./version"
 	"bufio"
+	"runtime/debug"
+	"runtime/pprof"
 )
-
-const N = 10000
-const SENDERS = 10
 
 type RootHandler struct {
 }
 
-var userrec = make(chan string)
-var done = make(chan int)
+func (s* RootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
-func (h *RootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-
-	w.Write([]byte(fmt.Sprintf("req:\n%v\n", r)))
-	w.Write([]byte(fmt.Sprintf("url:\n%v\n", r.URL)))
-	userrec <- fmt.Sprintf("url:\n%v\n", r.URL)
+	fmt.Fprintf(w, "resp\n")
 }
 
-type HelpHandler struct {
-	count int
-}
+func collectGarbage() {
 
-func (h *HelpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Println(r.Method)
-	fmt.Fprintln(w, "help handler")
+	stats := debug.GCStats{
+		PauseQuantiles: make([]time.Duration, 5, 5),
+		Pause:          make([]time.Duration, 5, 5),
+	}
+
+	debug.SetGCPercent(100)
+	runtime.GC()
+	debug.ReadGCStats(&stats)
+	log.Printf("stats after: %+v\n", stats)
+	debug.SetGCPercent(-1)
 }
 
 func server(conf Config, daemon bool) {
 
-	var h1 RootHandler
-	var h2 HelpHandler
-	http.Handle("/", &h1)
-	http.Handle("/help/", &h2)
+	var h RootHandler
+//	http.Handle("/", &h)
 
 	endpoint := fmt.Sprintf(":%d", conf.Port)
 	log.Println("starting on:", endpoint)
 
 	s := &http.Server{
 		Addr:           endpoint,
-		Handler:        nil,
-		ReadTimeout:    time.Second,
-		WriteTimeout:   time.Second,
+		Handler:        &h,
+		ReadTimeout:    time.Second * 100,
+		WriteTimeout:   time.Second * 100,
 		MaxHeaderBytes: 1 << 20,
 	}
 
@@ -68,26 +65,37 @@ func server(conf Config, daemon bool) {
 
 	fmt.Println("Press ENTER to stop")
 	reader := bufio.NewReader(os.Stdin)
+	
+	t := time.NewTicker(time.Second * 10)
 
 	go func() {
-		if daemon {
-			time.Sleep(time.Second*1000)
-		} else {
-			reader.ReadString('\n')
-		}
+		reader.ReadString('\n')
 		quit <- true
 	}()
 
 	loop:
 	for {
 		select {
-			case msg := <-userrec:
-				log.Println(msg)
-			case <- quit:
-				break loop
+		case <- t.C:
+			dumpHeap()
+			collectGarbage()
+		case <- quit:
+			break loop
 				
 		}
 	}
+}
+
+var heapCount int
+
+func dumpHeap() {
+	f, _ := os.Create(fmt.Sprintf("heap~/heap%03d.prof", heapCount))
+	heapCount++
+	p := pprof.Lookup("heap")
+	if err := p.WriteTo(f, 1); err != nil {
+		log.Println("heap:", err.Error())
+	}
+	f.Close()
 }
 
 func main() {
@@ -109,16 +117,22 @@ func main() {
 //	daemon(1, 1)
 
 	fmt.Println("version:", version.HEAD)
-
+/*
 	file, err := os.OpenFile("1.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Panicf(err.Error())
 	}
 
 	log.SetOutput(file)
-	log.Println("started")
+*/	log.Println("started")
 	fmt.Println("log started")
 
 	runtime.GOMAXPROCS(4)
+	debug.SetGCPercent(-1)
+	
+	go func() {
+ 		log.Println(http.ListenAndServe("localhost:6060", nil))
+ 	}()
+	
 	server(conf, true)
 }
