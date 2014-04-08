@@ -24,7 +24,7 @@ getdeps:
 %.run: %.go
 	GOPATH=$(GOPATH) $(GO) run $<
 
-deploy:
+deploy: http-server
 	rsync -vz http-server http-server.conf server1:
 	rsync -vz http-client server2:
 

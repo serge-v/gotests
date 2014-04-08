@@ -14,27 +14,67 @@ import (
 	"bufio"
 	"runtime/debug"
 	"runtime/pprof"
+	"strconv"
+	"strings"
 )
 
 type RootHandler struct {
 }
 
-func (s* RootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+const defInterval = 100
+var gcInterval = time.Duration(time.Millisecond * defInterval)
+var ticker = time.NewTicker(time.Millisecond * defInterval)
+var reloadTicker = make(chan bool)
 
-	fmt.Fprintf(w, "resp\n")
+
+func (s* RootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var err error
+	err = r.ParseForm()
+	if err != nil {
+		fmt.Fprintf(w, "parse error\n")
+		return
+	}
+
+	if r.URL.Path == "/set/gc" {
+		if len(r.Form["interval"]) > 0 {
+			val, err := strconv.Atoi(r.Form["interval"][0])
+			if err != nil {
+				fmt.Fprintf(w, "parameter error\n")
+				return
+			}
+			gcInterval = time.Millisecond * time.Duration(val)
+			fmt.Fprintf(w, "new gc.inverval is %s\n", gcInterval)
+			reloadTicker <- true
+		} else {
+			fmt.Fprintf(w, "no parameters specified\n")
+		}
+	} else if strings.HasPrefix(r.URL.Path, "/set/") {
+		fmt.Fprintf(w, "%+v\n", r)
+	} else {
+		fmt.Fprintf(w, "resp\n")
+	}
 }
+
+var stats = debug.GCStats{
+	PauseQuantiles: make([]time.Duration, 5, 5),
+	Pause:          make([]time.Duration, 1, 1),
+}
+
+var prevms runtime.MemStats
+var ms runtime.MemStats
 
 func collectGarbage() {
 
-	stats := debug.GCStats{
-		PauseQuantiles: make([]time.Duration, 5, 5),
-		Pause:          make([]time.Duration, 5, 5),
-	}
+	runtime.ReadMemStats(&ms)
 
-	debug.SetGCPercent(100)
+	debug.SetGCPercent(2)
 	runtime.GC()
 	debug.ReadGCStats(&stats)
-	log.Printf("stats after: %+v\n", stats)
+
+	fmt.Printf("pause: %dms, mallocs: %d, frees: %d\n", stats.Pause[0] / 1000000, ms.Mallocs - prevms.Mallocs, ms.Frees - prevms.Frees)
+
+	runtime.ReadMemStats(&prevms)
+	
 	debug.SetGCPercent(-1)
 }
 
@@ -49,8 +89,8 @@ func server(conf Config, daemon bool) {
 	s := &http.Server{
 		Addr:           endpoint,
 		Handler:        &h,
-		ReadTimeout:    time.Second * 100,
-		WriteTimeout:   time.Second * 100,
+		ReadTimeout:    time.Second * 30,
+		WriteTimeout:   time.Second * 30,
 		MaxHeaderBytes: 1 << 20,
 	}
 
@@ -66,22 +106,31 @@ func server(conf Config, daemon bool) {
 	fmt.Println("Press ENTER to stop")
 	reader := bufio.NewReader(os.Stdin)
 	
-	t := time.NewTicker(time.Second * 10)
-
 	go func() {
 		reader.ReadString('\n')
 		quit <- true
 	}()
 
+	freeMemory := false
+
 	loop:
 	for {
 		select {
-		case <- t.C:
+		case <- ticker.C:
 			dumpHeap()
 			collectGarbage()
+			if freeMemory {
+				debug.FreeOSMemory()
+				log.Println("FreeOSMemory called")
+				freeMemory = false
+			}
 		case <- quit:
 			break loop
-				
+		case <- reloadTicker:
+			ticker.Stop()
+			ticker = time.NewTicker(gcInterval)
+			log.Printf("new gc.inverval is %s\n", gcInterval)
+			freeMemory = true
 		}
 	}
 }
