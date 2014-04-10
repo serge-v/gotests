@@ -1,7 +1,16 @@
 GOPATH=$(HOME)/src/gocode
-GO=/usr/local/go/bin/go
+#GO=/usr/local/go/bin/go
+GO=$(HOME)/src/go/bin/go
+GOROOT=$(HOME)/src/go
 
-TARGETS=parse-dwml http-server http-client ftp-client mysql-client parse-json cache-test
+TARGETS=\
+	parse-dwml \
+	http-server http-client \
+	ftp-client \
+	mysql-client \
+	parse-json \
+	cache-test \
+	sock-pair
 
 all: $(TARGETS)
 
@@ -12,10 +21,13 @@ version/version.go: *.go Makefile
 	GOPATH=$(GOPATH) $(GO) build $<
 
 http-server: version/version.go http-server.go http-server-config.go daemon.go
-	GOPATH=$(GOPATH) $(GO) build http-server.go http-server-config.go daemon.go
+	GOROOT=$(GOROOT) GOPATH=$(GOPATH) $(GO) build http-server.go http-server-config.go daemon.go
+
+sock-pair: sock-pair.go pserver.go
+	GOROOT=$(GOROOT) GOPATH=$(GOPATH) $(GO) build sock-pair.go pserver.go
 
 http-client: version/version.go http-client.go http-client-config.go
-	GOPATH=$(GOPATH) $(GO) build http-client.go http-client-config.go
+	GOROOT=$(GOROOT) GOPATH=$(GOPATH) $(GO) build http-client.go http-client-config.go
 
 getdeps:
 	GOPATH=$(GOPATH) $(GO) get github.com/jlaffaye/ftp

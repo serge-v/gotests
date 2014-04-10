@@ -21,7 +21,7 @@ import (
 type RootHandler struct {
 }
 
-const defInterval = 100
+const defInterval = 10000
 var gcInterval = time.Duration(time.Millisecond * defInterval)
 var ticker = time.NewTicker(time.Millisecond * defInterval)
 var reloadTicker = make(chan bool)
@@ -51,6 +51,9 @@ func (s* RootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else if strings.HasPrefix(r.URL.Path, "/set/") {
 		fmt.Fprintf(w, "%+v\n", r)
 	} else {
+		w.Header().Set("Content-Type", "text/plain")
+		w.Header().Set("Connection", "keep-alive")
+		w.Header().Set("Keep-Alive", "timeout=120, max=50000")
 		fmt.Fprintf(w, "resp\n")
 	}
 }
@@ -67,7 +70,7 @@ func collectGarbage() {
 
 	runtime.ReadMemStats(&ms)
 
-	debug.SetGCPercent(2)
+	debug.SetGCPercent(100)
 	runtime.GC()
 	debug.ReadGCStats(&stats)
 

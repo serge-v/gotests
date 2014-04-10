@@ -3,56 +3,105 @@ package main
 import (
 	"fmt"
 	"log"
-	"net"
+//	"net"
 	"net/http"
 	"os"
-	"os/signal"
 	"time"
+	"bufio"
 //	"runtime"
 //	"bufio"
-//	"runtime/debug"
+	"runtime/debug"
 //	"runtime/pprof"
 //	"strconv"
-//	"strings"
+	"strings"
 )
 
-type RootHandler struct {
+var siblingPort int
+
+func (s* PairedServerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+
+	fmt.Fprintln(w, "resp")
 }
 
-func (s* RootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+var reader = bufio.NewReader(os.Stdin)
+
+func readCommands() {
+	for {
+		s, _ := reader.ReadString('\n')
+		commandChan <- strings.Trim(s, "\n")
+	}
 }
 
-func server() {
+func loop() {
 
-	var h RootHandler
+	go readCommands()
 
-	s := &http.Server{
-		Addr:           ":8081",
-		Handler:        &h,
-		ReadTimeout:    time.Second * 30,
-		WriteTimeout:   time.Second * 30,
-		MaxHeaderBytes: 1 << 20,
-	}
-	l, e := net.Listen("tcp", ":8081")
-	if e != nil {
-		log.Panicf(e.Error())
-	}
+	var s *PairedServer
+//	var err error
 
-	go s.Serve(l)
+	ticker := time.NewTicker(time.Second*2)
+	enabled_ticks := 0
 
-	fmt.Printf("Use Ctrl+C or 'kill -2 -p %d' to stop\n", os.Getpid())
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, os.Interrupt)
-	
 	for {
 		select {
-		case <-signals:
-			fmt.Println("stop")
-			return
+		case <-ticker.C:
+			dumpStat(0, s != nil && s.active)
+			if s != nil && s.active {
+				enabled_ticks++
+				if enabled_ticks > 10 {
+					commandChan <- "disable"
+				}
+			}
+
+		case cmd := <-commandChan:
+			log.Println("cmd:", cmd)
+			if cmd == "q" {
+				return
+			} else if cmd  == "disable" {
+				if s == nil {
+					log.Println("server already stopped. start first")
+					continue
+				}
+
+				log.Println("enable sibling")
+				if !s.activateSibling() {
+					continue
+				}
+				log.Println("enable command send")
+				time.Sleep(time.Millisecond*5)
+				s.stop()
+				s = nil
+				enabled_ticks = 0
+				time.Sleep(time.Second * 5)
+				log.Println("server stopped")
+				collectGarbage()
+			} else if cmd == "enable" {
+				if s != nil {
+					log.Println("server already started. stop first")
+					continue
+				}
+				s = newServer(8081)
+				s.bindAndGoServe()
+			}
 		}
 	}
 }
 
 func main() {
-	server()
+	var err error
+
+	debug.SetGCPercent(-1)
+
+	err = controlServer(":8082")
+	siblingPort = 8083
+
+	if err != nil {
+		err = controlServer(":8083")
+		siblingPort = 8082
+	} else {
+		commandChan <- "enable"
+	}
+
+	loop()
 }
