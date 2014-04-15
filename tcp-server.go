@@ -102,7 +102,7 @@ func handleConnection(conn net.Conn, num int) {
 		p.r.Reset(conn)
 		p.w.Reset(conn)
 		
-		if cnt%1000 == 0 {
+		if cnt%10000 == 0 {
 			fmt.Println("-", num, cnt, ready_cnt)
 		}
 	}

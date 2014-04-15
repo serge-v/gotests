@@ -16,6 +16,7 @@ const N = 100000
 const SENDERS = 2000
 
 type result struct {
+	num int
 	max time.Duration
 	m int
 	m0 int
@@ -62,7 +63,8 @@ func sender(num int, done chan result) {
 		io.Copy(ioutil.Discard, resp.Body); // need to read body completely otherwize keep-alive doesn't work
 		resp.Body.Close()
 
-		if i%1000 == 0 {
+		if i%10000 == 0 {
+			res.num = num
 			done <- res
 			res = result{}
 		}
@@ -96,8 +98,8 @@ func main() {
 		if res.max > total.max {
 			total.max = res.max
 		}
-		fmt.Printf("- max: %s, m: %d, m0: %d, m5: %d, m10: %d\n",
-			total.max, total.m, total.m0, total.m5, total.m10)
+		fmt.Printf("%d: max: %s, m: %d, m0: %d, m5: %d, m10: %d\n",
+			res.num, res.max, res.m, res.m0, res.m5, res.m10)
 
 		total.m10 += res.m10
 		total.m5 += res.m5
