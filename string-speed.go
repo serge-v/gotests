@@ -3,11 +3,13 @@ package main
 import (
 	"runtime"
 	"runtime/pprof"
+	"runtime/debug"
 	"os"
 	"bufio"
 	"fmt"
 	"bytes"
 	"log"
+	"net/http"
 )
 
 func dumpHeap() {
@@ -35,20 +37,29 @@ func main() {
 	b := bytes.NewBuffer(buff)
 
 //	dumpHeap()
-	runtime.ReadMemStats(&m1)
-//	s := ""
 
-	for i := 0; i < 10000; i++ {
-//		s = fmt.Sprintf("item number %d", i)
-//		fmt.Println(s)
+	runtime.ReadMemStats(&m1)
+	s := ""
+
+	for i := 0; i < 100; i++ {
+		s = fmt.Sprintf("item number %d", i)
+		fmt.Println(s)
 //		fmt.Fprintf(b, "item number %d", i)
 //		fmt.Println(b)
-		fmt.Fprintf(fw, "item number %d\n", i)
+//		fmt.Fprintf(os.Stdout, "item number %d\n", i)
 		b.Reset()
+//		http.Get("http://www.google.com")
+		if false {
+			http.Get("http://www.google.com")
+			log.Println(s)
+		}
+//		log.Println(s)
 	}
 
 	runtime.ReadMemStats(&m2)
 //	dumpHeap()
+	debug.SetGCPercent(2)
+	runtime.GC()
 
 	fmt.Printf("Mallocs %d %d (%d)\n", m1.Mallocs, m2.Mallocs, m2.Mallocs - m1.Mallocs)
 	fmt.Printf("Frees   %d %d (%d)\n", m1.Frees, m2.Frees, m2.Frees - m1.Frees)
