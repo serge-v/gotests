@@ -10,7 +10,8 @@ TARGETS=\
 	mysql-client \
 	parse-json \
 	cache-test \
-	sock-pair
+	sock-pair \
+	tcp-server
 
 all: $(TARGETS)
 
@@ -25,6 +26,9 @@ http-server: version/version.go http-server.go http-server-config.go daemon.go
 
 sock-pair: sock-pair.go pserver.go
 	GOROOT=$(GOROOT) GOPATH=$(GOPATH) $(GO) build sock-pair.go pserver.go
+
+tcp-server: tcp-server.go
+	GOROOT=$(GOROOT) GOPATH=$(GOPATH) $(GO) build tcp-server.go
 
 http-client: version/version.go http-client.go http-client-config.go
 	GOROOT=$(GOROOT) GOPATH=$(GOPATH) $(GO) build http-client.go http-client-config.go
