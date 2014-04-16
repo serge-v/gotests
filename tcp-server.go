@@ -13,13 +13,20 @@ import (
 	"bytes"
 )
 
-var count int = 0
-var allocs int = 0
-var errors int = 0
-var cached int = 0
-var accepts int = 0
-var releases int = 0
-var total int64 = 0
+const (
+	Ckeepalive_max = 10000
+	Ckeepalive_timeout = 60
+)
+
+var (
+	count int = 0
+	allocs int = 0
+	errors int = 0
+	cached int = 0
+	accepts int = 0
+	releases int = 0
+	total int64 = 0
+)
 
 func initLog() {
 
@@ -84,39 +91,41 @@ func handleConnection(conn net.Conn, num int) {
 	bad_cnt := 0
 	last_cnt := 0
 	cycles := 0
+	start := time.Now()
+	timeout := time.Duration(time.Second*Ckeepalive_timeout)
+	send_close := false
 	
 	for {
 		_, err := p.r.Read(p.b)
 		if err != nil {
 			if err != io.EOF {
-				log.Println(num, err)
+//				log.Println(num, err)
 				errors++
 			}
 			break
 		}
+
+		if (cycles >= Ckeepalive_max-1) || (time.Since(start) > timeout) {
+			send_close = true
+		}
+
+		fmt.Fprintf(p.w, "HTTP/1.1 200 OK\r\n")
+		fmt.Fprintf(p.w, "Content-Type: text/plain\r\n")
 		
+		if send_close {
+			fmt.Fprintf(p.w, "Connection: close\r\n")
+		}
+
 		if bytes.HasPrefix(p.b, Capprovider) {
-			fmt.Fprintf(p.w, "HTTP/1.1 200 OK\r\n")
-			fmt.Fprintf(p.w, "Content-Type: text/plain\r\n")
-			fmt.Fprintf(p.w, "Connection: keep-alive\r\n")
-			fmt.Fprintf(p.w, "Keep-Alive: timeout=120, max=50000\r\n")
 			fmt.Fprintf(p.w, "Content-Length: 1\r\n\r\n\n")
 //			fmt.Println("num:", num, cnt)
 			cnt++
 			last_cnt++
 		} else if bytes.HasPrefix(p.b, Cready) {
-			fmt.Fprintf(p.w, "HTTP/1.1 200 OK\r\n")
-			fmt.Fprintf(p.w, "Content-Type: text/plain\r\n")
-			fmt.Fprintf(p.w, "Connection: keep-alive\r\n")
-			fmt.Fprintf(p.w, "Keep-Alive: timeout=120, max=50000\r\n")
 			fmt.Fprintf(p.w, "Content-Length: 2\r\n\r\n1\n")
 			ready_cnt++
 		} else {
-			log.Println(num, "bad url: ", string(p.b))
-			fmt.Fprintf(p.w, "HTTP/1.1 200 OK\r\n")
-			fmt.Fprintf(p.w, "Content-Type: text/plain\r\n")
-			fmt.Fprintf(p.w, "Connection: keep-alive\r\n")
-			fmt.Fprintf(p.w, "Keep-Alive: timeout=120, max=50000\r\n")
+//			log.Println(num, "bad url: ", string(p.b))
 			fmt.Fprintf(p.w, "Content-Length: 1\r\n\r\n\n")
 			bad_cnt++
 		}
@@ -124,18 +133,21 @@ func handleConnection(conn net.Conn, num int) {
 		p.w.Flush()
 		p.r.Reset(conn)
 		p.w.Reset(conn)
-		time.Sleep(time.Millisecond)
 
 		cycles++
 		if cycles%2000 == 0 {
-			log.Println(num, "2k cycle. cnt", cnt, "r", ready_cnt, "b", bad_cnt, "c", cycles)
+			log.Println(num, "2k cycle. cnt", cnt, "r", ready_cnt, "b", bad_cnt, "c", cycles, time.Since(start))
 			total += int64(last_cnt)
 			last_cnt = 0
+		}
+		
+		if send_close {
+			break
 		}
 	}
 	conn.Close()
 	releases++
-	log.Println(num, "close: ", accepts-releases, "errors", errors)
+//	log.Println(num, "close: ", accepts-releases, "errors", errors)
 	total += int64(last_cnt)
 }
 
@@ -150,6 +162,7 @@ func dumpMemStat() {
 		m1.Mallocs, m2.Mallocs, m2.Mallocs - m1.Mallocs,
 		m1.Frees, m2.Frees, m2.Frees - m1.Frees,
 		allocs, cached, runtime.NumGoroutine(), total, (total - prev_total) / 5)
+	log.Println("accepted:", accepts, "released", releases)
 	runtime.ReadMemStats(&m1)
 	prev_total = total
 }
@@ -174,6 +187,7 @@ var throttle = time.Tick(time.Duration(1e9 / rate_per_sec))
 
 func main() {
 	initLog()
+	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	ticker := time.NewTicker(time.Second*5)
 	go memStat(ticker)
@@ -190,7 +204,7 @@ func main() {
         for {
                 conn, err := ln.Accept()
                 accepts++
-		log.Println("accepted", accepts, err)
+//		log.Println("accepted", accepts, err)
 
                 if err != nil {
 			log.Println(err.Error())

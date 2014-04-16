@@ -28,7 +28,7 @@ func readConfig() {
 
 func parseConf() bool {
 
-	readConfig()
+//	readConfig()
 
 	port := flag.Int("port", 8080, "Port to listen")
 	usage := flag.Bool("help", false, "Show this help")
