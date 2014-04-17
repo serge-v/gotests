@@ -12,7 +12,7 @@ import (
 	"os"
 )
 
-const N = 100000
+const N = 10000
 const SENDERS = 2000
 
 type result struct {
@@ -69,6 +69,7 @@ func sender(num int, done chan result) {
 			res = result{}
 		}
 	}
+	res.num = num
 	res.done = true
 	done <- res
 }
