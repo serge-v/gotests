@@ -28,6 +28,7 @@ var (
 	accepts int = 0
 	releases int = 0
 	total int64 = 0
+	total_ready int64 = 0
 	stopping bool = false
 )
 
@@ -131,6 +132,7 @@ func handleConnection(conn net.Conn, num int) {
 				fmt.Fprintf(p.w, "Content-Length: 2\r\n\r\n1\n")
 			}
 			ready_cnt++
+			total_ready++
 		} else {
 //			log.Println(num, "bad url: ", string(p.b))
 			fmt.Fprintf(p.w, "Content-Length: 1\r\n\r\n\n")
@@ -162,6 +164,11 @@ var m1 runtime.MemStats
 var m2 runtime.MemStats
 var prev_total int64 = 0
 
+func checkStoppingFlagFile() {
+	_, err := os.Stat(stopFile)
+	stopping = (err == nil)
+}
+
 func dumpMemStat() {
 	runtime.ReadMemStats(&m2)
 	log.Printf("%s M %d %d (%d), F %d %d (%d), a: %d, c: %d, gon: %d, total: %d (%d)\n",
@@ -169,15 +176,11 @@ func dumpMemStat() {
 		m1.Mallocs, m2.Mallocs, m2.Mallocs - m1.Mallocs,
 		m1.Frees, m2.Frees, m2.Frees - m1.Frees,
 		allocs, cached, runtime.NumGoroutine(), total, (total - prev_total) / 5)
-	log.Println("accepted:", accepts, "released", releases, "stop", stopping)
+	log.Println("accepted:", accepts, "released", releases, "stop", stopping, "ready", total_ready)
 	runtime.ReadMemStats(&m1)
 	prev_total = total
 
-	if _, err := os.Stat(stopFile); err == nil {
-		stopping = true
-	} else {
-		stopping = false
-	}
+	checkStoppingFlagFile()
 }
 /*
 func dumpHeapProfile() {
@@ -213,6 +216,8 @@ func main() {
         
 	log.Println("started")
 	num := 0
+	
+	checkStoppingFlagFile()
 
         for {
                 conn, err := ln.Accept()
