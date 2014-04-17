@@ -14,11 +14,13 @@ import (
 )
 
 const (
-	Ckeepalive_max = 10000
-	Ckeepalive_timeout = 60
+	Ckeepalive_max = 2000
+	Ckeepalive_timeout = 120
 )
 
 var (
+	port int = 81
+	stopFile = "stop-81.txt"
 	count int = 0
 	allocs int = 0
 	errors int = 0
@@ -26,6 +28,7 @@ var (
 	accepts int = 0
 	releases int = 0
 	total int64 = 0
+	stopping bool = false
 )
 
 func initLog() {
@@ -122,14 +125,18 @@ func handleConnection(conn net.Conn, num int) {
 			cnt++
 			last_cnt++
 		} else if bytes.HasPrefix(p.b, Cready) {
-			fmt.Fprintf(p.w, "Content-Length: 2\r\n\r\n1\n")
+			if stopping {
+				fmt.Fprintf(p.w, "Content-Length: 2\r\n\r\n0\n")
+			} else {
+				fmt.Fprintf(p.w, "Content-Length: 2\r\n\r\n1\n")
+			}
 			ready_cnt++
 		} else {
 //			log.Println(num, "bad url: ", string(p.b))
 			fmt.Fprintf(p.w, "Content-Length: 1\r\n\r\n\n")
 			bad_cnt++
 		}
-		
+
 		p.w.Flush()
 		p.r.Reset(conn)
 		p.w.Reset(conn)
@@ -140,7 +147,7 @@ func handleConnection(conn net.Conn, num int) {
 			total += int64(last_cnt)
 			last_cnt = 0
 		}
-		
+
 		if send_close {
 			break
 		}
@@ -162,9 +169,15 @@ func dumpMemStat() {
 		m1.Mallocs, m2.Mallocs, m2.Mallocs - m1.Mallocs,
 		m1.Frees, m2.Frees, m2.Frees - m1.Frees,
 		allocs, cached, runtime.NumGoroutine(), total, (total - prev_total) / 5)
-	log.Println("accepted:", accepts, "released", releases)
+	log.Println("accepted:", accepts, "released", releases, "stop", stopping)
 	runtime.ReadMemStats(&m1)
 	prev_total = total
+
+	if _, err := os.Stat(stopFile); err == nil {
+		stopping = true
+	} else {
+		stopping = false
+	}
 }
 /*
 func dumpHeapProfile() {
@@ -192,7 +205,7 @@ func main() {
 	ticker := time.NewTicker(time.Second*5)
 	go memStat(ticker)
 
-	ln, err := net.Listen("tcp", ":81")
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
         if err != nil {
                 fmt.Println(err.Error())
                 return
