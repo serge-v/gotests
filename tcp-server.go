@@ -4,132 +4,139 @@ import (
 	"fmt"
 	"net"
 	"runtime"
-//	"runtime/pprof"
+	//	"runtime/pprof"
+	"./util"
 	"bufio"
-	"time"
-	"io"
-	"os"
-	"log"
 	"bytes"
+	"io"
+	"log"
+	"os"
+	"time"
 )
 
-const (
-	Ckeepalive_max = 10000
-	Ckeepalive_timeout = 60
-)
-
-var (
-	count int = 0
-	allocs int = 0
-	errors int = 0
-	cached int = 0
-	accepts int = 0
-	releases int = 0
-	total int64 = 0
-)
-
-func initLog() {
-
-	logfile := "1.log"
-
-	file, err := os.OpenFile(logfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err != nil {
-		log.Panicf(err.Error())
-	}
-
-	w := io.MultiWriter(os.Stderr, file)
-	//	w := io.MultiWriter(file)
-	log.SetOutput(w)
-	log.SetFlags(log.LstdFlags | log.Lshortfile | log.Lmicroseconds)
-	fmt.Println("logging started to ", logfile)
-}
-
-type holder struct {
+// reusable buffer
+type rbuf struct {
 	r *bufio.Reader
 	w *bufio.Writer
 	b []byte
 }
 
-var holderChan = make(chan *holder, 4096)
+type Server struct {
+	port             int
+	rbufChan         chan *rbuf // reusable buffers cache
+	dataEndpoint     []byte
+	readyEndpoint    []byte
+	stopFile         string
+	stopping         bool
+	keepaliveMax     int
+	keepaliveTimeout int
 
-func getH(conn net.Conn) *holder {
+	// statistics
+	connAllocs   int64 // allocated buffers
+	connCached   int64 // get from cache count
+	connReleases int64 // released count
+	tcpAccepts   int64 // TODO: concurrent
+	errors       int64 // TODO: concurrent
+	totalData    int64 // TODO: concurrent
+	totalReady   int64 // TODO: concurrent
+}
+
+func newServer(port int) *Server {
+	s := Server{
+		port:             port,
+		stopFile:         fmt.Sprintf("stop-%d.txt", port),
+		rbufChan:         make(chan *rbuf, 4096),
+		dataEndpoint:     []byte("GET /data_provider/appnexus?"),
+		readyEndpoint:    []byte("GET /ready.ashx"),
+		keepaliveMax:     20000,
+		keepaliveTimeout: 1200,
+	}
+	return &s
+}
+
+func (s *Server) claimBuffer(conn net.Conn) *rbuf {
 	select {
-	case p := <- holderChan:
+	case p := <-s.rbufChan:
 		p.r.Reset(conn)
 		p.w.Reset(conn)
-		cached++
+		s.connCached++
 		return p
 	default:
-		p := new(holder)
+		p := new(rbuf)
 		p.r = bufio.NewReader(conn)
 		p.w = bufio.NewWriterSize(conn, 4096)
 		p.b = make([]byte, 4*4096)
-		allocs++
+		s.connAllocs++
 		return p
 	}
 }
 
-func putH(p *holder) {
+func (s *Server) releaseBuffer(p *rbuf) {
 	p.r.Reset(nil)
 	p.w.Reset(nil)
 	select {
-	case holderChan <- p:
+	case s.rbufChan <- p:
+		s.connReleases++
 	default:
 	}
 }
 
-var Capprovider = []byte("GET /data_provider/appnexus?")
-var Cready = []byte("GET /ready.ashx")
-var Cip = []byte("ip=")
+func (s *Server) checkStoppingFlag() {
+	_, err := os.Stat(s.stopFile)
+	s.stopping = (err == nil)
+}
 
-func handleConnection(conn net.Conn, num int) {
-	p := getH(conn)
-	defer putH(p)
-	
+func (s *Server) handleConnection(conn net.Conn, num int) {
+	p := s.claimBuffer(conn)
+	defer s.releaseBuffer(p)
+
 	cnt := 0
 	ready_cnt := 0
 	bad_cnt := 0
 	last_cnt := 0
 	cycles := 0
 	start := time.Now()
-	timeout := time.Duration(time.Second*Ckeepalive_timeout)
+	timeout := time.Duration(time.Second * time.Duration(s.keepaliveTimeout+num%120)) // distribute along 2 minutes
 	send_close := false
-	
+
 	for {
 		_, err := p.r.Read(p.b)
 		if err != nil {
 			if err != io.EOF {
-//				log.Println(num, err)
-				errors++
+				s.errors++
 			}
 			break
 		}
 
-		if (cycles >= Ckeepalive_max-1) || (time.Since(start) > timeout) {
+		if (cycles >= s.keepaliveMax-1) || (time.Since(start) > timeout) {
 			send_close = true
 		}
 
 		fmt.Fprintf(p.w, "HTTP/1.1 200 OK\r\n")
 		fmt.Fprintf(p.w, "Content-Type: text/plain\r\n")
-		
+
 		if send_close {
 			fmt.Fprintf(p.w, "Connection: close\r\n")
 		}
 
-		if bytes.HasPrefix(p.b, Capprovider) {
+		if bytes.HasPrefix(p.b, s.dataEndpoint) {
 			fmt.Fprintf(p.w, "Content-Length: 1\r\n\r\n\n")
-//			fmt.Println("num:", num, cnt)
 			cnt++
 			last_cnt++
-		} else if bytes.HasPrefix(p.b, Cready) {
-			fmt.Fprintf(p.w, "Content-Length: 2\r\n\r\n1\n")
+		} else if bytes.HasPrefix(p.b, s.readyEndpoint) {
+			if s.stopping {
+				fmt.Fprintf(p.w, "Content-Length: 2\r\n\r\n0\n")
+			} else {
+				fmt.Fprintf(p.w, "Content-Length: 2\r\n\r\n1\n")
+			}
 			ready_cnt++
+			s.totalReady++
 		} else {
-//			log.Println(num, "bad url: ", string(p.b))
+			//			log.Println(num, "bad url: ", string(p.b))
 			fmt.Fprintf(p.w, "Content-Length: 1\r\n\r\n\n")
 			bad_cnt++
 		}
-		
+
 		p.w.Flush()
 		p.r.Reset(conn)
 		p.w.Reset(conn)
@@ -137,80 +144,69 @@ func handleConnection(conn net.Conn, num int) {
 		cycles++
 		if cycles%2000 == 0 {
 			log.Println(num, "2k cycle. cnt", cnt, "r", ready_cnt, "b", bad_cnt, "c", cycles, time.Since(start))
-			total += int64(last_cnt)
+			s.totalData += int64(last_cnt)
 			last_cnt = 0
 		}
-		
+
 		if send_close {
 			break
 		}
 	}
 	conn.Close()
-	releases++
-//	log.Println(num, "close: ", accepts-releases, "errors", errors)
-	total += int64(last_cnt)
+	s.totalData += int64(last_cnt)
 }
 
-var m1 runtime.MemStats
-var m2 runtime.MemStats
-var prev_total int64 = 0
-
-func dumpMemStat() {
-	runtime.ReadMemStats(&m2)
-	log.Printf("%s M %d %d (%d), F %d %d (%d), a: %d, c: %d, gon: %d, total: %d (%d)\n",
-		time.Now(),
-		m1.Mallocs, m2.Mallocs, m2.Mallocs - m1.Mallocs,
-		m1.Frees, m2.Frees, m2.Frees - m1.Frees,
-		allocs, cached, runtime.NumGoroutine(), total, (total - prev_total) / 5)
-	log.Println("accepted:", accepts, "released", releases)
-	runtime.ReadMemStats(&m1)
-	prev_total = total
-}
-/*
-func dumpHeapProfile() {
-	p := pprof.Lookup("heap")
-	if err := p.WriteTo(os.Stdout, 1); err != nil {
-		fmt.Println("heap:", err.Error())
+func (s* Server) serve() {
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
+	if err != nil {
+		fmt.Println(err.Error())
+		return
 	}
-}
-*/
-func memStat(ticker *time.Ticker) {
-	for _ = range(ticker.C) {
-//		dumpHeapProfile()
-		dumpMemStat()
-	}
-}
 
-var rate_per_sec = 1
-var throttle = time.Tick(time.Duration(1e9 / rate_per_sec))
-
-
-func main() {
-	initLog()
-	runtime.GOMAXPROCS(runtime.NumCPU())
-
-	ticker := time.NewTicker(time.Second*5)
-	go memStat(ticker)
-
-	ln, err := net.Listen("tcp", ":81")
-        if err != nil {
-                fmt.Println(err.Error())
-                return
-        }
-        
 	log.Println("started")
 	num := 0
 
-        for {
-                conn, err := ln.Accept()
-                accepts++
-//		log.Println("accepted", accepts, err)
+	s.checkStoppingFlag()
 
-                if err != nil {
+	for {
+		conn, err := ln.Accept()
+		s.tcpAccepts++
+		//		log.Println("accepted", accepts, err)
+
+		if err != nil {
 			log.Println(err.Error())
-                        return
-                }
-                go handleConnection(conn, num)
-                num++
-        }
+			return
+		}
+		go s.handleConnection(conn, num)
+		num++
+	}
+}
+
+var prev_total int64 = 0
+
+func dumpStat(s* Server) {
+	util.DumpMemStat()
+	log.Printf("%s a: %d, c: %d, gon: %d, total: %d (%d)\n",
+		time.Now(),
+		s.connAllocs, s.connCached, runtime.NumGoroutine(), s.totalData, (s.totalData-prev_total)/5)
+
+	log.Println("accepted:", s.tcpAccepts, "released", s.connReleases, "stop", s.stopping, "ready", s.totalReady)
+	prev_total = s.totalData
+	s.checkStoppingFlag()
+}
+
+func dumpStatProc(s* Server) {
+	ticker := time.NewTicker(time.Second * 5)
+	for _ = range ticker.C {
+		dumpStat(s)
+	}
+}
+
+func main() {
+	util.InitLog()
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
+	s := newServer(81)
+	go dumpStatProc(s)
+	s.serve()
 }
