@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"runtime"
 	"runtime/pprof"
+	"bytes"
 )
 
 func dumpHeapProfile() {
@@ -27,8 +28,31 @@ func dumpMemStat() {
 	runtime.ReadMemStats(&m1)
 }
 
-func main() {
+func test3() {
+	urls := [][]byte{
+		[]byte("http://www.test.com:81?aid=5655001397149476941&ip=123.123.128.75&uid=223411434234234&country=US"),
+		[]byte("http://www.test.com:81?aid=5655001397149476941&ip=134.123.128.75 "),
+		[]byte("http://www.test.com:81?aid=5655001397149476941&ip=123.123.128.75"),
+		[]byte("http://www.test.com:81?aid=5655001397149476941&ip="),
+		[]byte("http://www.test.com:81?aid=5655001397149476941"),
+	}
 
+	for _, u := range(urls) {
+		idx1 := bytes.Index(u, []byte("ip="))
+		idx2 := bytes.IndexAny(u[idx1+3:], "& ")
+		if idx1 == -1 {
+			continue
+		}
+		if idx2 == -1 {
+			idx2 = len(u[idx1+3:])
+		}
+		fmt.Println("idx2", idx2)
+		fmt.Println("idx1", idx1)
+		fmt.Printf("ip: '%s'\n", string(u[idx1+3:idx1+3+idx2]))
+	}
+}
+
+func test2() {
 	rawurl := "http://www.test.com:81?test=aaa&test1=bbb&test3=ccc"
 
 	for i := 0; i < 10000; i++ {
@@ -43,4 +67,8 @@ func main() {
 	}
 	dumpHeapProfile()
 	dumpMemStat()
+}
+
+func main() {
+	test3()
 }
