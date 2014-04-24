@@ -30,11 +30,11 @@ http-client: version/version.go http-client.go http-client-config.go
 	GOROOT=$(GOROOT) GOPATH=$(GOPATH) $(GO) build http-client.go http-client-config.go
 
 getdeps:
-	GOPATH=$(GOPATH) $(GO) get github.com/jlaffaye/ftp
-	GOPATH=$(GOPATH) $(GO) get github.com/go-sql-driver/mysql
+	GOROOT=$(GOROOT) GOPATH=$(GOPATH) $(GO) get github.com/jlaffaye/ftp
+	GOROOT=$(GOROOT) GOPATH=$(GOPATH) $(GO) get github.com/go-sql-driver/mysql
 	
 %.run: %.go
-	GOPATH=$(GOPATH) $(GO) run $<
+	GOROOT=$(GOROOT) GOPATH=$(GOPATH) $(GO) run $<
 
 deploy: http-server
 	rsync -vz http-server http-server.conf server1:
