@@ -10,7 +10,8 @@ TARGETS=\
 	mysql-client \
 	parse-json \
 	cache-test \
-	tcp-server
+	tcp-server \
+	server-c
 
 all: $(TARGETS)
 
@@ -19,6 +20,9 @@ version/version.go: *.go Makefile
 
 %: %.go
 	GOROOT=$(GOROOT) GOPATH=$(GOPATH) $(GO) build $<
+
+server-c: server.c
+	gcc -g -o server-c server.c -lrt
 
 http-server: version/version.go http-server.go http-server-config.go daemon.go
 	GOROOT=$(GOROOT) GOPATH=$(GOPATH) $(GO) build http-server.go http-server-config.go daemon.go

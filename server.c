@@ -91,13 +91,34 @@ make_socket_non_blocking(int sfd)
 	return 0;
 }
 
-const char resp[] = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 1\r\n\r\n\n";
+const char resp_empty[] = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 1\r\n\r\n\n";
+const char resp_ready_1[] = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 2\r\n\r\n1\n";
+const char resp_ready_0[] = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 2\r\n\r\n0\n";
+
+int resp_empty_len = 0;
+int resp_ready_len = 0;
+
+struct response
+{
+	int fd;
+	const char* p;
+	int len;
+};
 
 struct params
 {
 	int num;
 	int sfd;
+	struct response* ring;
+	volatile uint64_t read_pos;
+	volatile uint64_t write_pos;
+	uint64_t size;
 };
+
+#define THREADS 4
+struct params params[THREADS];
+pthread_t threads[THREADS];
+pthread_t flush_thread;
 
 void
 accept_connection(int sfd, int efd, int num)
@@ -138,8 +159,8 @@ accept_connection(int sfd, int efd, int num)
 				NI_NUMERICHOST | NI_NUMERICSERV);
 		if (s == 0)
 		{
-			printf("%d: accept %d "
-			       "(host=%s, port=%s)\n", num, infd, hbuf, sbuf);
+//			printf("%d: accept %d "
+//			       "(host=%s, port=%s)\n", num, infd, hbuf, sbuf);
 		}
 
 		/* Make the incoming socket non-blocking and add it to the
@@ -214,12 +235,12 @@ threadproc(void* d)
 			{
 				if (events[i].data.fd == 0 || sfd == events[i].data.fd)
 					continue;
-			
+
 				int done = 0;
 
 				ssize_t count;
 				char buf[4096];
-
+				
 				count = read(events[i].data.fd, buf, sizeof buf);
 				if (count == -1)
 				{
@@ -237,7 +258,7 @@ threadproc(void* d)
 				else if (count == 0)
 				{
 					// end of file
-					printf("%d: closed conn %d\n", pars->num, events[i].data.fd);
+					// printf("%d: closed conn %d\n", pars->num, events[i].data.fd);
 					/* Closing the descriptor will make epoll remove it
 					   from the set of descriptors which are monitored. */
 					close(events[i].data.fd);
@@ -246,7 +267,19 @@ threadproc(void* d)
 					continue;
 				}
 
-				s = write(events[i].data.fd, resp, sizeof(resp)-1);
+				struct response* resp = &pars->ring[pars->write_pos % pars->size];
+				resp->p = resp_empty;
+				resp->len = resp_empty_len;
+				resp->fd = events[i].data.fd;
+				pars->write_pos++;
+
+				if (strncmp(buf, "GET /ready.ashx", 15) == 0)
+				{
+					resp->p = resp_ready_1;
+					resp->len = resp_ready_len;
+				}
+
+				s = write(events[i].data.fd, resp->p, resp->len);
 
 				if (s == -1)
 				{
@@ -262,25 +295,52 @@ threadproc(void* d)
 			if (sfd == events[i].data.fd)
 				accept_connection(sfd, efd, pars->num);
 		}
-
 	}
 
 	free(events);
-
 	close(sfd);
-
-	return EXIT_SUCCESS;
+	return NULL;
 }
 
-const int THREADS = 8;
+void*
+flush_proc(void* d)
+{
+	while (1)
+	{
+		int i;
+		for (i = 0; i < THREADS; i++)
+		{
+			struct params* pars = &params[i];
+
+			if (pars->read_pos >= pars->write_pos)
+				continue;
+
+			struct response* resp = &pars->ring[pars->read_pos % pars->size];
+			pars->read_pos++;
+
+			int n = write(resp->fd, resp->p, resp->len);
+
+			if (n == -1)
+			{
+				perror("write resp");
+				abort();
+			}
+		}
+	}
+
+	return NULL;
+}
 
 int
 main(int argc, char *argv[])
 {
-	int sfd, s, i;
+	int sfd, s, i, rc;
 	int efd;
 	struct epoll_event event;
 	struct epoll_event *events;
+
+	resp_empty_len = strlen(resp_empty);
+	resp_ready_len = strlen(resp_ready_1);
 
 	if (argc != 2)
 	{
@@ -303,13 +363,22 @@ main(int argc, char *argv[])
 		abort();
 	}
 	
-	struct params params[THREADS];
-	pthread_t threads[THREADS];
-	
+/*	int rc = pthread_create(&flush_thread, NULL, flush_proc, NULL);
+	if (rc < 0)
+	{
+		perror("error creating flush thread");
+		abort();
+	}
+*/
 	for (i = 0; i < THREADS; i++)
 	{
 		params[i].num = i;
 		params[i].sfd = sfd;
+		params[i].read_pos = 0;
+		params[i].write_pos = 0;
+		params[i].size = 1024;
+		params[i].ring = calloc(params[i].size, sizeof(struct response));
+
 		int rc = pthread_create(&threads[i], NULL, threadproc, &params[i]);
 		if (rc < 0)
 		{
@@ -326,5 +395,12 @@ main(int argc, char *argv[])
 			perror("pthread_join");
 			abort();
 		}
+	}
+	
+	rc = pthread_join(flush_thread, NULL);
+	if (rc < 0)
+	{
+		perror("pthread_join flush_thread");
+		abort();
 	}
 }
