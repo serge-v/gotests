@@ -13,3 +13,5 @@ mysql-client
 parse-json
 cache-test
 tags
+server-c
+tcp-server

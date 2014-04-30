@@ -3,6 +3,7 @@
 #include <sys/epoll.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -87,7 +88,24 @@ make_socket_non_blocking(int sfd)
 		perror("fcntl");
 		return -1;
 	}
-
+/*	
+	int flag = 1;
+	s = setsockopt(sfd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
+	if (s == -1)
+	{
+		perror("TCP_NODELAY");
+		return -1;
+	}
+*/
+/*
+	int flag = 1;
+	s = setsockopt(sfd, IPPROTO_TCP, TCP_QUICKACK, &flag, sizeof(flag));
+	if (s == -1)
+	{
+		perror("TCP_QUICKACK");
+		return -1;
+	}
+*/
 	return 0;
 }
 
@@ -229,6 +247,9 @@ threadproc(void* d)
 				readers++;
 		}
 
+		ssize_t count;
+		char buf[4096];
+
 		while (readers > 0)
 		{
 			for (i = 0; i < n; i++)
@@ -238,9 +259,6 @@ threadproc(void* d)
 
 				int done = 0;
 
-				ssize_t count;
-				char buf[4096];
-				
 				count = read(events[i].data.fd, buf, sizeof buf);
 				if (count == -1)
 				{
@@ -362,8 +380,8 @@ main(int argc, char *argv[])
 		perror("listen");
 		abort();
 	}
-	
-/*	int rc = pthread_create(&flush_thread, NULL, flush_proc, NULL);
+/*	
+	rc = pthread_create(&flush_thread, NULL, flush_proc, NULL);
 	if (rc < 0)
 	{
 		perror("error creating flush thread");
