@@ -4,24 +4,24 @@ package main
 
 import (
 	"fmt"
-	"net/http"
-	"time"
-	"runtime"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
+	"runtime"
+	"time"
 )
 
 const N = 10000
 const SENDERS = 2000
 
 type result struct {
-	num int
-	max time.Duration
-	m int
-	m0 int
-	m5 int
-	m10 int
+	num  int
+	max  time.Duration
+	m    int
+	m0   int
+	m5   int
+	m10  int
 	done bool
 }
 
@@ -30,14 +30,14 @@ func sender(num int, done chan result) {
 	tr := &http.Transport{
 		DisableKeepAlives: false,
 	}
-	
+
 	client := &http.Client{Transport: tr}
 	var res result
 	urlfmt := "http://%s:8080/data_provider/appnexus?uid=%d&ip=1.2.3.4"
 	for i := 0; i < N; i++ {
-		
+
 		url := fmt.Sprintf(urlfmt, conf.Host, 12000000000+i)
-		
+
 		start := time.Now()
 		req, _ := http.NewRequest("GET", url, nil)
 		resp, err := client.Do(req)
@@ -45,7 +45,7 @@ func sender(num int, done chan result) {
 		if elapsed > res.max {
 			res.max = elapsed
 		}
-		
+
 		if elapsed > time.Millisecond*10 {
 			res.m10++
 		} else if elapsed > time.Millisecond*5 {
@@ -60,7 +60,7 @@ func sender(num int, done chan result) {
 			os.Exit(1)
 		}
 
-		io.Copy(ioutil.Discard, resp.Body); // need to read body completely otherwize keep-alive doesn't work
+		io.Copy(ioutil.Discard, resp.Body) // need to read body completely otherwize keep-alive doesn't work
 		resp.Body.Close()
 
 		if i%10000 == 0 {
@@ -85,17 +85,17 @@ func main() {
 	start := time.Now()
 
 	var done = make(chan result)
-	
+
 	for i := 0; i < SENDERS; i++ {
 		go sender(i+1, done)
 	}
-	
+
 	cnt := 0
 	done_cnt := 0
-	
+
 	var total result
 
-	for res := range (done) {
+	for res := range done {
 		if res.max > total.max {
 			total.max = res.max
 		}

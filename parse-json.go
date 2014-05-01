@@ -1,25 +1,25 @@
 package main
 
 import (
-	"fmt"
 	"encoding/json"
 	"flag"
-	"os"
+	"fmt"
 	"io"
 	"log"
+	"os"
 )
 
 var inputFile = flag.String("infile", "test.json", "Input file path")
 
 type Message struct {
-	Time int
-	Userid int
-	Node_ids []int
-	Status int
-	Key string
-	Random string
+	Time           int
+	Userid         int
+	Node_ids       []int
+	Status         int
+	Key            string
+	Random         string
 	Enable_editing int
-	Delay int
+	Delay          int
 }
 
 func main() {
@@ -30,7 +30,7 @@ func main() {
 	}
 
 	dec := json.NewDecoder(file)
-	
+
 	var m Message
 
 	if err := dec.Decode(&m); err == io.EOF {

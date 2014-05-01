@@ -40,8 +40,8 @@ getdeps:
 %.run: %.go
 	GOROOT=$(GOROOT) GOPATH=$(GOPATH) $(GO) run $<
 
-deploy: http-server
-	rsync -vz http-server http-server.conf server1:
+deploy: http-server server-c
+	rsync -vz server-c http-server http-server.conf server1:
 	rsync -vz http-client server2:
 
 clean:

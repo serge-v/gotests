@@ -1,12 +1,12 @@
 package main
 
 import (
-	"os"
+	"bytes"
 	"fmt"
 	"net/url"
+	"os"
 	"runtime"
 	"runtime/pprof"
-	"bytes"
 )
 
 func dumpHeapProfile() {
@@ -22,8 +22,8 @@ var m2 runtime.MemStats
 func dumpMemStat() {
 	runtime.ReadMemStats(&m2)
 	fmt.Printf("M %d %d (%d), F %d %d (%d), gr: %d\n",
-		m1.Mallocs, m2.Mallocs, m2.Mallocs - m1.Mallocs,
-		m1.Frees, m2.Frees, m2.Frees - m1.Frees,
+		m1.Mallocs, m2.Mallocs, m2.Mallocs-m1.Mallocs,
+		m1.Frees, m2.Frees, m2.Frees-m1.Frees,
 		runtime.NumGoroutine())
 	runtime.ReadMemStats(&m1)
 }
@@ -37,7 +37,7 @@ func test3() {
 		[]byte("http://www.test.com:81?aid=5655001397149476941"),
 	}
 
-	for _, u := range(urls) {
+	for _, u := range urls {
 		idx1 := bytes.Index(u, []byte("ip="))
 		idx2 := bytes.IndexAny(u[idx1+3:], "& ")
 		if idx1 == -1 {
@@ -62,8 +62,8 @@ func test2() {
 			break
 		}
 
-//		fmt.Fprintln(os.Stdout, "test")
-//		fmt.Fprintln(os.Stdout, "test2")
+		//		fmt.Fprintln(os.Stdout, "test")
+		//		fmt.Fprintln(os.Stdout, "test2")
 	}
 	dumpHeapProfile()
 	dumpMemStat()

@@ -1,18 +1,18 @@
 package main
 
 import (
-        "fmt"
-        "net"
-        "strings"
+	"fmt"
+	"net"
+	"strings"
 )
 
 func getIp() string {
 	var ip string
-        ifs, _ := net.Interfaces()
+	ifs, _ := net.Interfaces()
 
-        for _, iface := range(ifs) {
-                addrs, _ := iface.Addrs()
-                if len(addrs) > 0 {
+	for _, iface := range ifs {
+		addrs, _ := iface.Addrs()
+		if len(addrs) > 0 {
 			ip = addrs[0].String()
 			ip = strings.Trim(ip, "[]")
 			parts := strings.Split(ip, "/")
@@ -21,12 +21,11 @@ func getIp() string {
 				return ip
 			}
 		}
-        }
-        
-        return ip
+	}
+
+	return ip
 }
 
 func main() {
 	fmt.Println(getIp())
 }
-

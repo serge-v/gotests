@@ -156,7 +156,7 @@ func (s *Server) handleConnection(conn net.Conn, num int) {
 	s.totalData += int64(last_cnt)
 }
 
-func (s* Server) serve() {
+func (s *Server) serve() {
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
 	if err != nil {
 		fmt.Println(err.Error())
@@ -184,7 +184,7 @@ func (s* Server) serve() {
 
 var prev_total int64 = 0
 
-func dumpStat(s* Server) {
+func dumpStat(s *Server) {
 	util.DumpMemStat()
 	log.Printf("%s a: %d, c: %d, gon: %d, total: %d (%d)\n",
 		time.Now(),
@@ -195,7 +195,7 @@ func dumpStat(s* Server) {
 	s.checkStoppingFlag()
 }
 
-func dumpStatProc(s* Server) {
+func dumpStatProc(s *Server) {
 	ticker := time.NewTicker(time.Second * 5)
 	for _ = range ticker.C {
 		dumpStat(s)

@@ -1,15 +1,15 @@
 package main
 
 import (
-	"runtime"
-	"runtime/pprof"
-	"runtime/debug"
-	"os"
 	"bufio"
-	"fmt"
 	"bytes"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"runtime"
+	"runtime/debug"
+	"runtime/pprof"
 )
 
 func dumpHeap() {
@@ -24,19 +24,18 @@ var m2 runtime.MemStats
 
 var buff = make([]byte, 1000, 1000)
 
-
 func main() {
 
 	file, err := os.OpenFile("string-test~.txt", os.O_CREATE|os.O_TRUNC|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Panicf(err.Error())
 	}
-	
+
 	fw := bufio.NewWriter(file)
 
 	b := bytes.NewBuffer(buff)
 
-//	dumpHeap()
+	//	dumpHeap()
 
 	runtime.ReadMemStats(&m1)
 	s := ""
@@ -44,26 +43,26 @@ func main() {
 	for i := 0; i < 100; i++ {
 		s = fmt.Sprintf("item number %d", i)
 		fmt.Println(s)
-//		fmt.Fprintf(b, "item number %d", i)
-//		fmt.Println(b)
-//		fmt.Fprintf(os.Stdout, "item number %d\n", i)
+		//		fmt.Fprintf(b, "item number %d", i)
+		//		fmt.Println(b)
+		//		fmt.Fprintf(os.Stdout, "item number %d\n", i)
 		b.Reset()
-//		http.Get("http://www.google.com")
+		//		http.Get("http://www.google.com")
 		if false {
 			http.Get("http://www.google.com")
 			log.Println(s)
 		}
-//		log.Println(s)
+		//		log.Println(s)
 	}
 
 	runtime.ReadMemStats(&m2)
-//	dumpHeap()
+	//	dumpHeap()
 	debug.SetGCPercent(2)
 	runtime.GC()
 
-	fmt.Printf("Mallocs %d %d (%d)\n", m1.Mallocs, m2.Mallocs, m2.Mallocs - m1.Mallocs)
-	fmt.Printf("Frees   %d %d (%d)\n", m1.Frees, m2.Frees, m2.Frees - m1.Frees)
+	fmt.Printf("Mallocs %d %d (%d)\n", m1.Mallocs, m2.Mallocs, m2.Mallocs-m1.Mallocs)
+	fmt.Printf("Frees   %d %d (%d)\n", m1.Frees, m2.Frees, m2.Frees-m1.Frees)
 	fmt.Printf("b: %d\n", b.Len())
-	
+
 	fw.Flush()
 }

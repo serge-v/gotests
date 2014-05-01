@@ -5,8 +5,8 @@ import (
 )
 
 type Config struct {
-	Host string
-	Port int
+	Host        string
+	Port        int
 	ShowVersion bool
 }
 
@@ -21,10 +21,10 @@ func parseConf() bool {
 	if !flag.Parsed() {
 		return false
 	}
-	
+
 	conf = Config{
-		Host: *host,
-		Port: *port,
+		Host:        *host,
+		Port:        *port,
 		ShowVersion: *version,
 	}
 

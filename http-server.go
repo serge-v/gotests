@@ -3,31 +3,31 @@
 package main
 
 import (
+	"./version"
+	"bufio"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
-	"time"
 	"runtime"
-	"./version"
-	"bufio"
 	"runtime/debug"
 	"runtime/pprof"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type RootHandler struct {
 }
 
 const defInterval = 10000
+
 var gcInterval = time.Duration(time.Millisecond * defInterval)
 var ticker = time.NewTicker(time.Millisecond * defInterval)
 var reloadTicker = make(chan bool)
 
-
-func (s* RootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (s *RootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var err error
 	err = r.ParseForm()
 	if err != nil {
@@ -74,17 +74,17 @@ func collectGarbage() {
 	runtime.GC()
 	debug.ReadGCStats(&stats)
 
-	fmt.Printf("pause: %dms, mallocs: %d, frees: %d\n", stats.Pause[0] / 1000000, ms.Mallocs - prevms.Mallocs, ms.Frees - prevms.Frees)
+	fmt.Printf("pause: %dms, mallocs: %d, frees: %d\n", stats.Pause[0]/1000000, ms.Mallocs-prevms.Mallocs, ms.Frees-prevms.Frees)
 
 	runtime.ReadMemStats(&prevms)
-	
+
 	debug.SetGCPercent(-1)
 }
 
 func server(conf Config, daemon bool) {
 
 	var h RootHandler
-//	http.Handle("/", &h)
+	//	http.Handle("/", &h)
 
 	endpoint := fmt.Sprintf(":%d", conf.Port)
 	log.Println("starting on:", endpoint)
@@ -108,7 +108,7 @@ func server(conf Config, daemon bool) {
 
 	fmt.Println("Press ENTER to stop")
 	reader := bufio.NewReader(os.Stdin)
-	
+
 	go func() {
 		reader.ReadString('\n')
 		quit <- true
@@ -116,10 +116,10 @@ func server(conf Config, daemon bool) {
 
 	freeMemory := false
 
-	loop:
+loop:
 	for {
 		select {
-		case <- ticker.C:
+		case <-ticker.C:
 			dumpHeap()
 			collectGarbage()
 			if freeMemory {
@@ -127,9 +127,9 @@ func server(conf Config, daemon bool) {
 				log.Println("FreeOSMemory called")
 				freeMemory = false
 			}
-		case <- quit:
+		case <-quit:
 			break loop
-		case <- reloadTicker:
+		case <-reloadTicker:
 			ticker.Stop()
 			ticker = time.NewTicker(gcInterval)
 			log.Printf("new gc.inverval is %s\n", gcInterval)
@@ -155,7 +155,7 @@ func main() {
 	if !parseConf() {
 		return
 	}
-	
+
 	if conf.ShowVersion {
 		fmt.Println("=== diff ===")
 		fmt.Println(version.DIFF)
@@ -166,25 +166,25 @@ func main() {
 		return
 	}
 
-//	daemon(1, 1)
+	//	daemon(1, 1)
 
 	fmt.Println("version:", version.HEAD)
-/*
-	file, err := os.OpenFile("1.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err != nil {
-		log.Panicf(err.Error())
-	}
+	/*
+		file, err := os.OpenFile("1.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if err != nil {
+			log.Panicf(err.Error())
+		}
 
-	log.SetOutput(file)
-*/	log.Println("started")
+		log.SetOutput(file)
+	*/log.Println("started")
 	fmt.Println("log started")
 
 	runtime.GOMAXPROCS(4)
 	debug.SetGCPercent(-1)
-	
+
 	go func() {
- 		log.Println(http.ListenAndServe("localhost:6060", nil))
- 	}()
-	
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
 	server(conf, true)
 }

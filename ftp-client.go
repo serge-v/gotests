@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/jlaffaye/ftp"
-	)
+)
 
 func main() {
 
@@ -11,7 +11,7 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	
+
 	err = c.Login("anonymous", "anonymous")
 	if err != nil {
 		fmt.Println(err)

@@ -1,24 +1,24 @@
 package main
 
 import (
+	"fmt"
+	"log"
 	"net"
 	"net/http"
-	"fmt"
-	"time"
-	"log"
 	"runtime"
 	"runtime/debug"
+	"time"
 )
 
 type PairedServerHandler struct {
 }
 
 type PairedServer struct {
-	listener    net.Listener
-	server      *http.Server
-	number      int
-	endpoint    string
-	active      bool
+	listener net.Listener
+	server   *http.Server
+	number   int
+	endpoint string
+	active   bool
 }
 
 func newServer(port int) *PairedServer {
@@ -70,23 +70,23 @@ func (srv *PairedServer) activateSibling() {
 		return
 	}
 	log.Println("activate command sent")
-//	time.Sleep(time.Millisecond*5)
+	//	time.Sleep(time.Millisecond*5)
 	commandChan <- Cstop
 }
 
 func (srv *PairedServer) stop() {
 	srv.server.StopChan <- true
-	srv.listener.Close()  
+	srv.listener.Close()
 	<-srv.server.StoppedChan
 	srv.active = false
-//	time.Sleep(time.Second * 1) // wait to complete go handlers
-//	log.Println("server stopped")
+	//	time.Sleep(time.Second * 1) // wait to complete go handlers
+	//	log.Println("server stopped")
 }
 
 func dumpStat(instant uint64, active bool) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	log.Printf("mem: %dMb, a: %t, instant: %d\n", m.Sys / 1024 / 1024, active, instant)
+	log.Printf("mem: %dMb, a: %t, instant: %d\n", m.Sys/1024/1024, active, instant)
 }
 
 var stats = debug.GCStats{
@@ -97,7 +97,7 @@ var prevms runtime.MemStats
 var ms runtime.MemStats
 
 func collectGarbage() {
-	time.Sleep(time.Second*5)
+	time.Sleep(time.Second * 5)
 	runtime.ReadMemStats(&ms)
 	debug.SetGCPercent(100)
 	runtime.GC()
@@ -105,9 +105,9 @@ func collectGarbage() {
 	debug.ReadGCStats(&stats)
 
 	fmt.Printf("GC pause: %dms, mallocs: %d, frees: %d\n",
-		stats.Pause[0] / 1000000,
-		ms.Mallocs - prevms.Mallocs,
-		ms.Frees - prevms.Frees)
+		stats.Pause[0]/1000000,
+		ms.Mallocs-prevms.Mallocs,
+		ms.Frees-prevms.Frees)
 
 	debug.SetGCPercent(-1)
 	runtime.ReadMemStats(&prevms)
@@ -148,9 +148,9 @@ func controlServer(endpoint string) error {
 	return nil
 }
 
-func (s* ControlHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (s *ControlHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	
+
 	if r.URL.Path == "/c/e" {
 		commandChan <- Cstart
 	} else if r.URL.Path == "/c/d" {
