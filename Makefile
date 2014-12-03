@@ -1,7 +1,7 @@
-GOPATH=$(HOME)/src/gocode
-#GO=/usr/local/go/bin/go
-GO=$(HOME)/src/go/bin/go
-GOROOT=$(HOME)/src/go
+#GOPATH=$(HOME)/src/gocode
+GO=go
+#GO=$(HOME)/src/go/bin/go
+#GOROOT=$(HOME)/src/go
 
 TARGETS=\
 	parse-dwml \
