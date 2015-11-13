@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-var inputFile = flag.String("infile", "1~.txt", "Input file path")
+var inputFile = flag.String("infile", "1~.xml", "Input file path")
 
 func dump_httpresp(resp *http.Response) {
 	fmt.Println("resp: ", resp)
@@ -92,9 +92,34 @@ type TimeLayout struct {
 }
 
 type Parameters struct {
-	XMLName       xml.Name   `xml:"parameters"`
-	Temperatures  []Valueset `xml:"temperature"`
-	Precipitation Valueset   `xml:"precipitation"`
+	XMLName       xml.Name  `xml:"parameters"`
+	Temperature   []Valueset `xml:"temperature"`
+	WindSpeed     []Valueset `xml:"wind-speed"`
+	Direction     []Valueset `xml:"direction"`
+	CloudAmount   []Valueset `xml:"cloud-amount"`
+	Precipitation []Valueset `xml:"precipitation"`
+	Humidity      []Valueset `xml:"humidity"`
+}
+
+type Visibility struct {
+	XMLName       xml.Name
+	Units string              `xml:"units,attr"`
+}
+
+type ConditionValue struct {
+	Coverage string              `xml:"coverage,attr"`
+	Intencity string              `xml:"intencity,attr"`
+	WeatherType string              `xml:"weather-type,attr"`
+	Qualifier string              `xml:"qualifier,attr"`
+}
+
+type WeatherConditions struct {
+	Value []ConditionValue `xml:"value"`
+}
+
+type Weather struct {
+	TimeLayout string              `xml:"time-layout,attr"`
+	Conditions []WeatherConditions `xml:"weather-conditions"`
 }
 
 type Valueset struct {
@@ -118,18 +143,39 @@ func decode_dwml(xmlFile *os.File) {
 
 	fmt.Println("Time layouts:")
 
-	for idx, v := range p.Data.TimeLayouts {
-		fmt.Println("    ", idx, v.Key, len(v.StartTime))
+	for _, v := range p.Data.TimeLayouts {
+		fmt.Println("    ", v.Key, len(v.StartTime))
 	}
 
-	fmt.Println("Temperatures:")
+	fmt.Println("Air:")
 
-	for idx, v := range p.Data.Parameters.Temperatures {
-		fmt.Println("    ", idx, v.Name, v.TimeLayout, len(v.Values))
+	for _, v := range p.Data.Parameters.Temperature {
+		fmt.Println("    ", v.Name, v.TimeLayout, len(v.Values))
 	}
 
-	pr := p.Data.Parameters.Precipitation
-	fmt.Println("Precipitation:", pr.TimeLayout, len(pr.Values))
+	for _, v := range p.Data.Parameters.Humidity {
+		fmt.Println("    ", v.Name, v.TimeLayout, len(v.Values))
+	}
+
+	fmt.Println("Wind:")
+
+	for _, v := range p.Data.Parameters.WindSpeed {
+		fmt.Println("    ", v.Name, v.TimeLayout, len(v.Values))
+	}
+
+	for _, v := range p.Data.Parameters.Direction {
+		fmt.Println("    ", v.Name, v.TimeLayout, len(v.Values))
+	}
+
+	fmt.Println("Sky:")
+
+	for _, v := range p.Data.Parameters.CloudAmount {
+		fmt.Println("    ", v.Name, v.TimeLayout, len(v.Values))
+	}
+
+	for _, v := range p.Data.Parameters.Precipitation {
+		fmt.Println("    ", v.Name, v.TimeLayout, len(v.Values))
+	}
 }
 
 func file_cached(fname *string) bool {
