@@ -1,7 +1,7 @@
-#GOPATH=$(HOME)/src/gocode
 GO=go
-#GO=$(HOME)/src/go/bin/go
-#GOROOT=$(HOME)/src/go
+
+DATE=$(shell date +%Y-%m-%dT%H:%M:%S%z)
+LDFLAGS="-X main.date=$(DATE) -X main.version=$(VERSION)"
 
 TARGETS=\
 	parse-dwml \
@@ -13,13 +13,16 @@ TARGETS=\
 	tcp-server \
 	server-c
 
-all: $(TARGETS)
+all: http-cookie-server
 
 version/version.go: *.go Makefile
 	@./gen-version.sh
 
-%: %.go
-	GOROOT=$(GOROOT) GOPATH=$(GOPATH) $(GO) build $<
+http-cookie-server: http-cookie-server.go
+	go build -ldflags $(LDFLAGS) $<
+
+clean:
+	rm http-cookie-server
 
 server-c: server.c
 	gcc -g -o server-c server.c -lrt
@@ -44,8 +47,10 @@ deploy: http-server server-c
 	rsync -vz server-c http-server http-server.conf server1:
 	rsync -vz http-client server2:
 
-clean:
-	rm $(TARGETS) version/version.go
+cgi:
+	env GOOS=linux GOARCH=amd64 go build -ldflags '-w' cgi-app.go
+	cp cgi-app /Volumes/plymouth.acenet.us/www/cgi-bin/
+	curl -v http://voilokov.com/cgi-bin/cgi-app/sss
 
 help:
 	$(GO) help
